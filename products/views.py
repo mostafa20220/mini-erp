@@ -1,0 +1,6 @@
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+
+
+class ListCreateProductsApiView(ListCreateAPIView):...
+
+class RetrieveUpdateDestroyProductApiView(RetrieveUpdateDestroyAPIView):...
