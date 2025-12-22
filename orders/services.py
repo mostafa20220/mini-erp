@@ -5,7 +5,6 @@ from orders.constants import ORDER_STATUS_CANCELLED, ORDER_STATUS_CONFIRMED, ORD
 from users.models import User
 from orders.models import Order, OrderItem
 from products.services import ProductStockService
-from products.models import Product
 
 
 class OrderNumberService:
@@ -34,8 +33,7 @@ class OrderService:
 
     @staticmethod
     @transaction.atomic
-    def create_order(customer_id, items, created_by, modified_by):
-
+    def create_order(customer_id, items, created_by, modified_by, products_dict):
         customer = User.objects.get(id=customer_id)
         order_number = OrderNumberService.generate_order_number()
 
@@ -48,24 +46,30 @@ class OrderService:
             modified_by=modified_by
         )
 
+        order_items = []
         total_amount = 0
-        for item_data in items:
-            product = Product.objects.get(id=item_data['product_id'])
 
+        for item_data in items:
+            product = products_dict[item_data['product_id']]
             price = item_data.get('price', product.selling_price)
             quantity = item_data['quantity']
+            item_total = quantity * price
 
-            OrderItem.objects.create(
-                order=order,
-                product=product,
-                product_name=product.name,
-                product_sku=product.sku,
-                quantity=quantity,
-                price=price,
-                total_price=quantity * price
+            order_items.append(
+                OrderItem(
+                    order=order,
+                    product=product,
+                    product_name=product.name,
+                    product_sku=product.sku,
+                    quantity=quantity,
+                    price=price,
+                    total_price=item_total
+                )
             )
 
-            total_amount += quantity * price
+            total_amount += item_total
+
+        OrderItem.objects.bulk_create(order_items)
 
         order.total_amount = total_amount
         order.save(update_fields=['total_amount'])
@@ -85,7 +89,7 @@ class OrderService:
 
     @staticmethod
     @transaction.atomic
-    def delete_order(instance, user):
+    def delete_order(instance):
         if instance.status != ORDER_STATUS_PENDING:
             raise ValueError("Only pending orders can be deleted.")
 
@@ -116,11 +120,9 @@ class OrderStatusService:
 
     @staticmethod
     def _confirm_order(order, user):
-        if order.status != ORDER_STATUS_PENDING:
-            raise ValueError("Only pending orders can be confirmed.")
 
         for item in order.items.all():
-            success, message = ProductStockService.decrease_stock(
+            ProductStockService.decrease_stock(
                 product=item.product,
                 quantity=item.quantity,
                 customer=order.customer,
@@ -128,22 +130,15 @@ class OrderStatusService:
                 reason=f"Order {order.order_number} confirmed"
             )
 
-            if not success:
-                raise ValueError(f"Failed to decrease stock for {item.product_name}: {message}")
-
     @staticmethod
     def _cancel_order(order, old_status, user):
 
-        if old_status == ORDER_STATUS_CONFIRMED:
-            for item in order.items.all():
-                success, message = ProductStockService.increase_stock(
-                    product=item.product,
-                    quantity=item.quantity,
-                    customer=order.customer,
-                    sales_user=user,
-                    reason=f"Order {order.order_number} cancelled"
-                )
-
-                if not success:
-                    raise ValueError(f"Failed to return stock for {item.product_name}: {message}")
-
+        if not old_status == ORDER_STATUS_CONFIRMED: return
+        for item in order.items.all():
+           ProductStockService.increase_stock(
+                product=item.product,
+                quantity=item.quantity,
+                customer=order.customer,
+                sales_user=user,
+                reason=f"Order {order.order_number} cancelled"
+            )

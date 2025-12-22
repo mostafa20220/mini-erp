@@ -104,3 +104,72 @@ class ProductStockService:
             change_reason=reason,
             created_by=created_by
         )
+
+    @staticmethod
+    @transaction.atomic
+    def decrease_stock(
+        product: Product,
+        quantity: int,
+        customer,
+        sales_user=None,
+        reason: str = "Sales order"
+    ) :
+
+        if quantity <= 0:
+            return False, "Quantity must be greater than 0"
+
+        product = Product.objects.select_for_update().get(pk=product.pk)
+
+        if product.stock_qty < quantity:
+            return False, f"Insufficient stock. Available: {product.stock_qty}, Required: {quantity}"
+
+        # Store previous quantity for logging
+        previous_qty = product.stock_qty
+
+        # Decrease stock
+        product.stock_qty -= quantity
+        product.save(update_fields=['stock_qty', 'modified_at'])
+
+        # Log stock change
+        return ProductStockService.log_stock_change(
+            product=product,
+            previous_qty=previous_qty,
+            new_qty=product.stock_qty,
+            created_by=sales_user or customer,
+            customer=customer,
+            reason=reason
+        )
+
+
+    @staticmethod
+    @transaction.atomic
+    def increase_stock(
+        product: Product,
+        quantity: int,
+        customer=None,
+        sales_user=None,
+        reason: str = "Stock adjustment"
+    ):
+
+        if quantity <= 0:
+            return False, "Quantity must be greater than 0"
+
+        # Lock the product row
+        product = Product.objects.select_for_update().get(pk=product.pk)
+
+        previous_qty = product.stock_qty
+
+        # Increase stock
+        product.stock_qty += quantity
+        product.save(update_fields=['stock_qty', 'modified_at'])
+
+        # Log stock change
+        return ProductStockService.log_stock_change(
+            product=product,
+            previous_qty=previous_qty,
+            new_qty=product.stock_qty,
+            created_by=sales_user or customer,
+            customer=customer,
+            reason=reason
+        )
+

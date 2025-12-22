@@ -58,7 +58,7 @@ class RetrieveUpdateDestroyOrderApiView(RetrieveUpdateDestroyAPIView):
         ).all()
 
     def perform_destroy(self, instance):
-        OrderService.delete_order(instance, self.request.user)
+        OrderService.delete_order(instance)
 
 
 class OrderItemsListApiView(ListAPIView):

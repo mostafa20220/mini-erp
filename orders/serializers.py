@@ -1,5 +1,7 @@
 from decimal import Decimal
 from rest_framework import serializers
+
+from orders.constants import ORDER_STATUS_CHOICES, ORDER_STATUS_CONFIRMED, ORDER_STATUS_PENDING, ORDER_STATUS_CANCELLED
 from orders.services import OrderService, OrderStatusService
 from users.models import User
 from users.constants import ROLE_CUSTOMER
@@ -50,25 +52,36 @@ class OrderCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-
         items = attrs.get('items')
 
+        product_ids = [item_data['product_id'] for item_data in items]
+
+        products = Product.objects.filter(id__in=product_ids)
+        products_dict = {product.id: product for product in products}
+
+        missing_ids = set(product_ids) - set(products_dict.keys())
+        if missing_ids:
+            raise serializers.ValidationError({
+                'items': f"Products with IDs {list(missing_ids)} not found."
+            })
+
+        stock_errors = []
         for item_data in items:
             product_id = item_data['product_id']
             quantity = item_data['quantity']
-
-            try:
-                product = Product.objects.get(id=product_id)
-            except Product.DoesNotExist:
-                raise serializers.ValidationError({
-                    'items': f"Product with ID {product_id} not found."
-                })
+            product = products_dict[product_id]
 
             if product.stock_qty < quantity:
-                raise serializers.ValidationError({
-                    'items': f"Insufficient stock for {product.name}. Available: {product.stock_qty}, Requested: {quantity}"
-                })
+                stock_errors.append(
+                    f"{product.name}: Available {product.stock_qty}, Requested {quantity}"
+                )
 
+        if stock_errors:
+            raise serializers.ValidationError({
+                'items': f"Insufficient stock for: {'; '.join(stock_errors)}"
+            })
+
+        attrs['products_dict'] = products_dict
         return attrs
 
     def create(self, validated_data):
@@ -76,12 +89,11 @@ class OrderCreateSerializer(serializers.Serializer):
 
 
 class OrderRetrieveSerializer(serializers.Serializer):
-    """Serializer for retrieving a single order (GET /api/v1/orders/{id}/)."""
 
     id = serializers.IntegerField(read_only=True)
     order_number = serializers.CharField(read_only=True)
     customer_id = serializers.IntegerField(source='customer.id', read_only=True)
-    customer_details = serializers.SerializerMethodField()
+    customer = serializers.CharField(source='get_full_name', read_only=True)
     order_date = serializers.DateField(read_only=True)
     status = serializers.CharField(read_only=True)
     total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -91,51 +103,35 @@ class OrderRetrieveSerializer(serializers.Serializer):
     created_by = serializers.CharField(source='created_by.get_full_name', read_only=True)
     modified_by = serializers.CharField(source='modified_by.get_full_name', read_only=True)
 
-    def get_customer_details(self, obj):
-        """Get customer information."""
-        return {
-            'id': obj.customer.id,
-            'email': obj.customer.email,
-            'name': obj.customer.get_full_name() or obj.customer.email,
-        }
-
 
 class OrderUpdateSerializer(serializers.Serializer):
-    """Serializer for updating orders (PUT/PATCH /api/v1/orders/{id}/)."""
 
     status = serializers.ChoiceField(
-        choices=['PENDING', 'CONFIRMED', 'CANCELLED'],
-        required=False
+        choices=ORDER_STATUS_CHOICES,
     )
 
     def validate_status(self, value):
-        """Validate status transition."""
         instance = self.instance
 
-        if not instance:
-            return value
+        if value == instance.status:
+            raise serializers.ValidationError("Status is already set to the specified value.")
 
-        # Validate status transitions
-        if instance.status == 'CONFIRMED' and value == 'PENDING':
+        if instance.status == ORDER_STATUS_CONFIRMED and value == ORDER_STATUS_PENDING:
             raise serializers.ValidationError("Cannot change status from CONFIRMED to PENDING.")
 
-        if instance.status == 'CANCELLED':
+        if instance.status == ORDER_STATUS_CANCELLED:
             raise serializers.ValidationError("Cannot change status of a cancelled order.")
 
         return value
 
     def update(self, instance, validated_data):
-        """Update order using service layer."""
         user = self.context['request'].user
         new_status = validated_data.get('status')
 
-        if new_status and new_status != instance.status:
-            # Use status service to handle transitions and stock management
-            return OrderStatusService.change_order_status(
-                order=instance,
-                new_status=new_status,
-                user=user
-            )
+        return OrderStatusService.change_order_status(
+            order=instance,
+            new_status=new_status,
+            user=user
+        )
 
-        return instance
 
