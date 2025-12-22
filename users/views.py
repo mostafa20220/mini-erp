@@ -21,11 +21,11 @@ class ListCreateCustomerApiView(ListCreateAPIView):
         return ReadCustomerSerializer
 
     def get_permissions(self):
-        permissions = [IsAdmin]
         if self.request.method == 'POST':
-            permissions = [IsSales | IsAdmin]
-        return [perm() for perm in permissions]
-
+            self.permission_classes = [IsSales | IsAdmin]
+        else:
+            self.permission_classes = [IsAdmin]
+        return super().get_permissions()
 
 class RetrieveUpdateDestroyCustomerApiView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdmin]
