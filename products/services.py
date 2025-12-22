@@ -13,17 +13,19 @@ class ProductService:
         cost_price: float,
         selling_price: float,
         stock_qty: int,
+        image,
         created_by,
         modified_by
     ) -> Product:
 
         product = Product.objects.create(
-            sku=sku.upper().strip(),
-            name=name.strip(),
-            category=category.strip(),
+            sku=sku,
+            name=name,
+            category=category,
             cost_price=cost_price,
             selling_price=selling_price,
             stock_qty=stock_qty,
+            image=image,
             created_by=created_by,
             modified_by=modified_by
         )

@@ -14,6 +14,7 @@ class ProductListSerializer(serializers.Serializer):
     cost_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     stock_qty = serializers.IntegerField(read_only=True)
+    image = serializers.ImageField(read_only=True, allow_null=True)
     stock_status = serializers.CharField()
     profit_margin = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
@@ -33,6 +34,7 @@ class ProductCreateSerializer(serializers.Serializer):
     cost_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal(0.01))
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal(0.01))
     stock_qty = serializers.IntegerField(min_value=0)
+    image = serializers.ImageField(required=False, allow_null=True)
 
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
     modified_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
@@ -68,6 +70,7 @@ class ProductRetrieveSerializer(serializers.Serializer):
     cost_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     stock_qty = serializers.IntegerField(read_only=True)
+    image = serializers.ImageField(read_only=True, allow_null=True)
     profit_margin = serializers.CharField(read_only=True)
     stock_status = serializers.CharField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
@@ -83,6 +86,7 @@ class ProductUpdateSerializer(serializers.Serializer):
     cost_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal(0.01), required=False)
     selling_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal(0.01), required=False)
     stock_qty = serializers.IntegerField(min_value=0, required=False)
+    image = serializers.ImageField(required=False, allow_null=True)
 
     def validate(self, attrs):
         validate_product_prices(attrs['selling_price'], attrs['cost_price'])

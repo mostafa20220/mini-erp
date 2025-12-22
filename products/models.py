@@ -16,6 +16,11 @@ class Product(BaseModel):
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
     stock_qty = models.PositiveIntegerField()
+    image = models.ImageField(
+        upload_to='products/images/',
+        null=True,
+        blank=True,
+    )
 
     objects = ProductManager()
 
