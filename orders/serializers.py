@@ -58,6 +58,11 @@ class OrderCreateSerializer(serializers.Serializer):
 
         product_ids = [item_data['product_id'] for item_data in items]
 
+        if len(product_ids) != len(set(product_ids)):
+            raise serializers.ValidationError({
+                'items': "Duplicate product IDs found in order items."
+            })
+
         products = Product.objects.filter(id__in=product_ids)
         products_dict = {product.id: product for product in products}
 
@@ -75,7 +80,7 @@ class OrderCreateSerializer(serializers.Serializer):
 
             if product.stock_qty < quantity:
                 stock_errors.append(
-                    f"{product.name} sku: {products.sku}"
+                    f"{product.name} sku: {product.sku}"
                 )
 
         if stock_errors:
@@ -106,25 +111,29 @@ class OrderRetrieveSerializer(serializers.Serializer):
     modified_by = serializers.CharField(source='modified_by.get_full_name', read_only=True)
 
 
-class OrderUpdateSerializer(serializers.Serializer):
+class OrderStatusUpdateSerializer(serializers.Serializer):
 
     status = serializers.ChoiceField(
         choices=ORDER_STATUS_CHOICES,
     )
 
-    def validate_status(self, value):
+    def validate(self, attrs):
         instance = self.instance
+        new_status = attrs.get('status')
 
-        if value == instance.status:
+        if not new_status:
+            raise serializers.ValidationError({'status': "This field is required."})
+
+        if new_status == instance.status:
             raise serializers.ValidationError("Status is already set to the specified value.")
 
-        if instance.status == ORDER_STATUS_CONFIRMED and value == ORDER_STATUS_PENDING:
+        if instance.status == ORDER_STATUS_CONFIRMED and new_status == ORDER_STATUS_PENDING:
             raise serializers.ValidationError("Cannot change status from CONFIRMED to PENDING.")
 
         if instance.status == ORDER_STATUS_CANCELLED:
             raise serializers.ValidationError("Cannot change status of a cancelled order.")
 
-        return value
+        return attrs
 
     def update(self, instance, validated_data):
 

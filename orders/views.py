@@ -2,12 +2,12 @@ from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIV
 from rest_framework.filters import OrderingFilter, SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 
-from orders.models import Order
+from orders.models import Order, OrderItem
 from orders.serializers import (
     OrderListSerializer,
     OrderCreateSerializer,
     OrderRetrieveSerializer,
-    OrderUpdateSerializer,
+    OrderStatusUpdateSerializer,
     OrderItemDetailSerializer
 )
 from orders.filters import OrderFilter, OrderItemFilter
@@ -40,7 +40,7 @@ class RetrieveUpdateDestroyOrderApiView(RetrieveUpdateDestroyAPIView):
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
-            return OrderUpdateSerializer
+            return OrderStatusUpdateSerializer
         return OrderRetrieveSerializer
 
     def get_permissions(self):
@@ -67,4 +67,10 @@ class OrderItemsListApiView(ListAPIView):
     permission_classes = [IsSales | IsAdmin]
     filterset_class = OrderItemFilter
     filter_backends = [DjangoFilterBackend, OrderingFilter]
-    ordering = ['id']
+    ordering = ['-id']
+
+    def get_queryset(self):
+        order_id = self.kwargs.get('order_id')
+        return OrderItem.objects.filter(
+            order_id=order_id
+        ).all()

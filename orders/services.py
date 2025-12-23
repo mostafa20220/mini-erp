@@ -1,5 +1,6 @@
 from django.db import transaction
 from datetime import datetime
+from rest_framework.exceptions import ValidationError
 
 from orders.constants import ORDER_STATUS_CANCELLED, ORDER_STATUS_CONFIRMED, ORDER_STATUS_PENDING
 from users.models import User
@@ -100,7 +101,10 @@ class OrderService:
     def delete_order(instance):
 
         if instance.status != ORDER_STATUS_PENDING:
-            raise ValueError("Only pending orders can be deleted.")
+            raise ValidationError(
+                {"status": "Only pending orders can be deleted."},
+                code="invalid_order_state"
+            )
 
         instance.delete()
 
@@ -108,14 +112,15 @@ class OrderService:
     def _confirm_order(order, user):
 
         if order.status != ORDER_STATUS_PENDING:
-            raise ValueError("Only pending orders can be confirmed.")
+            raise ValidationError("Only pending orders can be confirmed.")
 
         for item in order.items.all():
             new_qty = item.product.stock_qty - item.quantity
 
             if new_qty < 0:
-                raise ValueError(
-                    f"Insufficient stock for {item.product.name} {item.sku} "
+                raise ValidationError(
+                    {"stock": f"Insufficient stock for {item.product.name} sku: {item.product.sku}"},
+                    code="insufficient_stock"
                 )
 
             ProductService.update_stock(
