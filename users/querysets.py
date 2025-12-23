@@ -1,3 +1,4 @@
+from django.contrib.auth.models import BaseUserManager
 from django.db import models
 from users.constants import ROLE_CUSTOMER, ROLE_ADMIN, ROLE_SALES_USER
 
@@ -50,7 +51,7 @@ class UserQuerySet(models.QuerySet):
                 .order_by('-id'))
 
 
-class UserManager(models.Manager):
+class UserManager(BaseUserManager):
 
     def get_queryset(self):
         return UserQuerySet(self.model, using=self._db)
