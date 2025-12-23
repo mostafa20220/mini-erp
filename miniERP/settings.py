@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'django_filters',
+    'drf_spectacular',
     'users',
     'products',
     'orders',
@@ -122,10 +123,17 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'PAGE_SIZE':DEFAULT_PAGINATION_PAGE_SIZE,  # Adjust the page size as needed
-    # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'PAGE_SIZE': DEFAULT_PAGINATION_PAGE_SIZE,
     'DEFAULT_PAGINATION_CLASS': 'miniERP.pagination.CustomCursorPagination',
-    # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.CursorPagination',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Mini ERP API',
+    'DESCRIPTION': 'API documentation for Mini ERP system - Product and Order Management',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
 }
 
 
