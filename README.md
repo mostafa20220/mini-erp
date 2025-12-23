@@ -2,6 +2,11 @@
 
 A comprehensive Enterprise Resource Planning (ERP) system built with Django REST Framework for managing products, orders, customers, and inventory operations with role-based access control.
 
+## 🔗 Related Repositories
+
+**Frontend Application**: [Mini ERP Frontend](https://github.com/mostafa20220/mini-erp-front-end)  
+The bootstrap-based frontend application that consumes this API.
+
 ## 🚀 Features
 
 ### User Management
