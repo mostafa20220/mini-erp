@@ -2,7 +2,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from orders.constants import ORDER_STATUS_CHOICES, ORDER_STATUS_CONFIRMED, ORDER_STATUS_PENDING, ORDER_STATUS_CANCELLED
-from orders.services import OrderService, OrderStatusService
+from orders.services import OrderService
 from users.models import User
 from users.constants import ROLE_CUSTOMER
 from products.models import Product
@@ -37,6 +37,8 @@ class OrderListSerializer(serializers.Serializer):
     total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
     created_by = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    modified_at = serializers.DateTimeField(read_only=True)
+    modified_by = serializers.CharField(source='modified_by.get_full_name', read_only=True)
 
 
 class OrderCreateSerializer(serializers.Serializer):
@@ -73,7 +75,7 @@ class OrderCreateSerializer(serializers.Serializer):
 
             if product.stock_qty < quantity:
                 stock_errors.append(
-                    f"{product.name}: Available {product.stock_qty}, Requested {quantity}"
+                    f"{product.name} sku: {products.sku}"
                 )
 
         if stock_errors:
@@ -125,10 +127,11 @@ class OrderUpdateSerializer(serializers.Serializer):
         return value
 
     def update(self, instance, validated_data):
+
         user = self.context['request'].user
         new_status = validated_data.get('status')
 
-        return OrderStatusService.change_order_status(
+        return OrderService.change_order_status(
             order=instance,
             new_status=new_status,
             user=user

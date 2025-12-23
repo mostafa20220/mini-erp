@@ -30,7 +30,8 @@ class ProductService:
             modified_by=modified_by
         )
 
-        ProductStockService.log_stock_change(
+        # Log initial stock
+        ProductService._log_stock_change(
             product=product,
             previous_qty=0,
             new_qty=stock_qty,
@@ -41,6 +42,7 @@ class ProductService:
         return product
 
     @staticmethod
+    @transaction.atomic
     def update_product(instance: Product, validated_data: dict, user) -> Product:
         old_stock_qty = instance.stock_qty
         new_stock_qty = validated_data.get('stock_qty', old_stock_qty)
@@ -50,18 +52,16 @@ class ProductService:
         for field, value in validated_data.items():
             setattr(instance, field, value)
 
+        instance.save()
 
-        with transaction.atomic():
-            instance.save()
-
-            if old_stock_qty != new_stock_qty:
-                ProductStockService.log_stock_change(
-                    product=instance,
-                    previous_qty=old_stock_qty,
-                    new_qty=new_stock_qty,
-                    created_by=user,
-                    reason=f"Stock updated by {user.get_full_name() or user.email}"
-                )
+        # Handle stock change if stock quantity changed
+        if old_stock_qty != new_stock_qty:
+            ProductService.update_stock(
+                product=instance,
+                new_qty=new_stock_qty,
+                user=user,
+                reason=f"Stock updated by {user.get_full_name()}"
+            )
 
         return instance
 
@@ -69,7 +69,7 @@ class ProductService:
     @transaction.atomic
     def delete_product(instance: Product, user) -> None:
         if instance.stock_qty > 0:
-            ProductStockService.log_stock_change(
+            ProductService._log_stock_change(
                 product=instance,
                 previous_qty=instance.stock_qty,
                 new_qty=0,
@@ -79,12 +79,37 @@ class ProductService:
 
         instance.delete()
 
+    @staticmethod
+    @transaction.atomic
+    def update_stock(
+        product: Product,
+        new_qty: int,
+        user,
+        customer=None,
+        reason: str = "Stock adjustment"
+    ) -> StockChangeLog:
 
+        # Lock the product row to prevent race conditions
+        product = Product.objects.select_for_update().get(pk=product.pk)
 
-class ProductStockService:
+        previous_qty = product.stock_qty
+
+        # Update stock
+        product.stock_qty = new_qty
+        product.save(update_fields=['stock_qty', 'modified_at'])
+
+        # Log stock change
+        return ProductService._log_stock_change(
+            product=product,
+            previous_qty=previous_qty,
+            new_qty=new_qty,
+            created_by=user,
+            customer=customer,
+            reason=reason
+        )
 
     @staticmethod
-    def log_stock_change(
+    def _log_stock_change(
         product: Product,
         previous_qty: int,
         new_qty: int,
@@ -105,71 +130,4 @@ class ProductStockService:
             created_by=created_by
         )
 
-    @staticmethod
-    @transaction.atomic
-    def decrease_stock(
-        product: Product,
-        quantity: int,
-        customer,
-        sales_user=None,
-        reason: str = "Sales order"
-    ) :
-
-        if quantity <= 0:
-            return False, "Quantity must be greater than 0"
-
-        product = Product.objects.select_for_update().get(pk=product.pk)
-
-        if product.stock_qty < quantity:
-            return False, f"Insufficient stock. Available: {product.stock_qty}, Required: {quantity}"
-
-        # Store previous quantity for logging
-        previous_qty = product.stock_qty
-
-        # Decrease stock
-        product.stock_qty -= quantity
-        product.save(update_fields=['stock_qty', 'modified_at'])
-
-        # Log stock change
-        return ProductStockService.log_stock_change(
-            product=product,
-            previous_qty=previous_qty,
-            new_qty=product.stock_qty,
-            created_by=sales_user or customer,
-            customer=customer,
-            reason=reason
-        )
-
-
-    @staticmethod
-    @transaction.atomic
-    def increase_stock(
-        product: Product,
-        quantity: int,
-        customer=None,
-        sales_user=None,
-        reason: str = "Stock adjustment"
-    ):
-
-        if quantity <= 0:
-            return False, "Quantity must be greater than 0"
-
-        # Lock the product row
-        product = Product.objects.select_for_update().get(pk=product.pk)
-
-        previous_qty = product.stock_qty
-
-        # Increase stock
-        product.stock_qty += quantity
-        product.save(update_fields=['stock_qty', 'modified_at'])
-
-        # Log stock change
-        return ProductStockService.log_stock_change(
-            product=product,
-            previous_qty=previous_qty,
-            new_qty=product.stock_qty,
-            created_by=sales_user or customer,
-            customer=customer,
-            reason=reason
-        )
 

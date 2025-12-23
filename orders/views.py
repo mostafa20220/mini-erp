@@ -2,7 +2,7 @@ from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIV
 from rest_framework.filters import OrderingFilter, SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 
-from orders.models import Order, OrderItem
+from orders.models import Order
 from orders.serializers import (
     OrderListSerializer,
     OrderCreateSerializer,
@@ -32,7 +32,7 @@ class ListCreateOrdersApiView(ListCreateAPIView):
         return OrderListSerializer
 
     def get_queryset(self):
-        return Order.objects.select_related('customer', 'created_by').all()
+        return Order.objects.select_related('customer', 'created_by', 'modified_by').all()
 
 
 class RetrieveUpdateDestroyOrderApiView(RetrieveUpdateDestroyAPIView):
@@ -68,10 +68,3 @@ class OrderItemsListApiView(ListAPIView):
     filterset_class = OrderItemFilter
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     ordering = ['id']
-
-
-    def get_queryset(self):
-        order_id = self.kwargs.get('order_id')
-        return OrderItem.objects.filter(
-            order_id=order_id
-        ).select_related('product', 'order').all()
