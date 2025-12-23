@@ -1,4 +1,5 @@
 from django.db import models
+from products.constants import LOW_STOCK_THRESHOLD
 
 
 class ProductQuerySet(models.QuerySet):
@@ -9,7 +10,7 @@ class ProductQuerySet(models.QuerySet):
     def out_of_stock(self):
         return self.filter(stock_qty=0)
 
-    def low_stock(self, threshold=10):
+    def low_stock(self, threshold=LOW_STOCK_THRESHOLD):
         return self.filter(stock_qty__lte=threshold, stock_qty__gt=0)
 
     def by_category(self, category):
@@ -29,6 +30,6 @@ class ProductManager(models.Manager):
     def out_of_stock(self):
         return self.get_queryset().out_of_stock()
 
-    def low_stock(self, threshold=10):
+    def low_stock(self, threshold=LOW_STOCK_THRESHOLD):
         return self.get_queryset().low_stock(threshold)
 

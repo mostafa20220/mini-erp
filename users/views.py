@@ -1,8 +1,8 @@
 from rest_framework.generics import CreateAPIView, RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework.permissions import IsAuthenticated
 
+from users.models import User
 from users.permissions import IsSales, IsAdmin
-from users.querysets import UserQuerySet
 from users.serializers import LogoutSerializer, CreateCustomerSerializer, ReadCustomerSerializer, \
     UpdateCustomerSerializer
 
@@ -13,7 +13,7 @@ class LogoutView(CreateAPIView):
 
 
 class ListCreateCustomerApiView(ListCreateAPIView):
-    queryset = UserQuerySet.list_customers_query()
+    queryset = User.objects.list_customers_query()
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -29,7 +29,7 @@ class ListCreateCustomerApiView(ListCreateAPIView):
 
 class RetrieveUpdateDestroyCustomerApiView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdmin]
-    queryset = UserQuerySet.list_customers_query()
+    queryset = User.objects.list_customers_query()
 
     def get_serializer_class(self):
         method_map = {

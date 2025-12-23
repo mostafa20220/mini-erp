@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import Sum
+from django.utils import timezone
 from orders.constants import ORDER_STATUS_PENDING, ORDER_STATUS_CONFIRMED, ORDER_STATUS_CANCELLED
 
 
@@ -32,6 +33,19 @@ class OrderQuerySet(models.QuerySet):
             queryset = queryset.filter(order_date__lte=end_date)
         return queryset
 
+    def today(self):
+        today = timezone.now().date()
+        return self.filter(order_date=today)
+
+    def today_sales(self):
+        today = timezone.now().date()
+        return self.filter(
+            status=ORDER_STATUS_CONFIRMED,
+            order_date=today
+        ).aggregate(
+            total=Sum('total_amount')
+        )['total'] or 0
+
     def with_total_summary(self):
         return self.aggregate(
             total_orders=models.Count('id'),
@@ -58,6 +72,12 @@ class OrderManager(models.Manager):
 
     def by_status(self, status):
         return self.get_queryset().by_status(status)
+
+    def today(self):
+        return self.get_queryset().today()
+
+    def today_sales(self):
+        return self.get_queryset().today_sales()
 
 
 class OrderItemQuerySet(models.QuerySet):
